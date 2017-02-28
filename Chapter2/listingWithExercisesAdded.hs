@@ -71,9 +71,12 @@ matchBase decimalNumber  = Number $ read decimalNumber
 
 parseNumber :: Parser LispVal
 parseNumber = do first <- digit <|> char '#'
-                 second <- digit <|> oneOf "bodh"
-                 rest <- many digit
-                 return $ matchBase (first:second:rest)
+                 case first of
+                   '#' -> do second <- oneOf "bodh"
+                             rest <- many digit
+                             return $ matchBase (first:second:rest)
+                   _   -> do rest <- many digit
+                             return $ matchBase (first:rest)
 
 parseFloat :: Parser LispVal
 parseFloat = do h <- many digit
@@ -91,6 +94,19 @@ parseCharName = do name <- string "space" <|> string "newline"
                               "space" -> ' '
                               "newline" -> '\n'
 
+parseList :: Parser LispVal
+parseList = liftM List $ sepBy parseExpr spaces
+
+parseDottedList :: Parser LispVal
+parseDottedList = do head <- endBy parseExpr spaces
+                     tail <- char '.' >> spaces >> parseExpr
+                     return $ DottedList head tail
+
+parseQuoted :: Parser LispVal
+parseQuoted = do char '\''
+                 x <- parseExpr
+                 return $ List [Atom "quote", x]
+
 parseExpr :: Parser LispVal
 parseExpr = parseAtom
         <|> parseString
@@ -98,3 +114,8 @@ parseExpr = parseAtom
         <|> try parseNumber
         <|> try parseBool
         <|> try parseCharacter
+        <|> try parseQuoted
+        <|> do char '('
+               x <- (try parseList) <|> parseDottedList
+               char ')'
+               return x
