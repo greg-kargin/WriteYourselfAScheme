@@ -1,6 +1,7 @@
 module Main where
 import Numeric
 import Data.Char
+import Data.Typeable
 import Control.Monad
 import System.Environment
 import Text.ParserCombinators.Parsec hiding (spaces)
@@ -37,19 +38,51 @@ primitives = [("+", numericBinop (+)),
               ("/", numericBinop div),
               ("mod", numericBinop mod),
               ("quotient", numericBinop quot),
-              ("remainder", numericBinop rem)
+              ("remainder", numericBinop rem),
+              ("symbol?", checkType isSym),
+              ("string?", checkType isStr),
+              ("number?", checkType isNum),
+              ("float?",  checkType isFlt),
+              ("symbol->string", symbol2string),
+              ("string->symbol", string2symbol)
              ]
+
+symbol2string :: [LispVal] -> LispVal
+symbol2string ((Atom sym):[]) = String sym
+symbol2string _ = String "" -- later should be changed to error
+
+string2symbol :: [LispVal] -> LispVal
+string2symbol ((String sym):[]) = Atom sym
+string2symbol _ = Atom "" -- same
+
+checkType :: (LispVal -> Bool) -> [LispVal] -> LispVal
+checkType check syms = Bool (foldl1 (&&) $ map check syms)
+
+isSym :: LispVal -> Bool
+isSym s = case s of
+  Atom _ -> True
+  _      -> False
+
+isStr :: LispVal -> Bool
+isStr s = case s of
+  String _ -> True
+  _        -> False
+
+isNum :: LispVal -> Bool
+isNum n = case n of
+  Number _ -> True
+  _        -> False
+
+isFlt :: LispVal -> Bool
+isFlt n = case n of
+  Float _ -> True
+  _       -> False
 
 numericBinop :: (Integer -> Integer -> Integer) -> [LispVal] -> LispVal
 numericBinop op params = Number $ foldl1 op $ map unpackNum params
 
 unpackNum :: LispVal -> Integer
 unpackNum (Number n) = n
-unpackNum (String n) = let parsed = reads n in
-                         if null parsed
-                         then 0
-                         else fst $ parsed !! 0
-unpackNum (List [n]) = unpackNum n
 unpackNum _ = 0
 
 parseString :: Parser LispVal
@@ -147,6 +180,8 @@ showVal :: LispVal -> String
 showVal (String c) = "\"" ++ c ++ "\""
 showVal (Atom a) = a
 showVal (Number n) = show n
+showVal (Character c) = show c
+showVal (Float f) = show f
 showVal (Bool True) = "#t"
 showVal (Bool False) = "#f"
 showVal (List contents) = "(" ++ unwordsList contents ++ ")"
@@ -160,6 +195,8 @@ eval :: LispVal -> LispVal
 eval (String c) = (String c)
 eval (Atom a) = (Atom a)
 eval (Number n) = (Number n)
+eval (Float f) = (Float f)
+eval (Character c) = (Character c)
 eval (Bool b) = (Bool b)
 eval (List (Atom func : args)) = apply func $ map eval args
 
