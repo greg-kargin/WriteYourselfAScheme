@@ -7,14 +7,14 @@ import Text.ParserCombinators.Parsec hiding (spaces)
 
 main :: IO ()
 main = do args <- getArgs
-          putStrLn (readExpr (args !! 0))
+          putStrLn $ show $ eval $ (readExpr (args !! 0))
 
 symbol :: Parser Char
 symbol = oneOf "!$%&|*+-/:<=>?@^_~"
 
 readExpr input = case parse parseExpr "lisp" input of
-    Left err -> "No match: " ++ show err
-    Right val -> "Found value: " ++ show val
+    Left err -> String ("No match: " ++ show err)
+    Right val -> val
 
 spaces :: Parser ()
 spaces = skipMany1 space
@@ -30,6 +30,27 @@ data LispVal = Atom String
 
 instance Show LispVal where show = showVal
 
+primitives :: [(String, [LispVal] ->  LispVal)]
+primitives = [("+", numericBinop (+)),
+              ("-", numericBinop (-)),
+              ("*", numericBinop (*)),
+              ("/", numericBinop div),
+              ("mod", numericBinop mod),
+              ("quotient", numericBinop quot),
+              ("remainder", numericBinop rem)
+             ]
+
+numericBinop :: (Integer -> Integer -> Integer) -> [LispVal] -> LispVal
+numericBinop op params = Number $ foldl1 op $ map unpackNum params
+
+unpackNum :: LispVal -> Integer
+unpackNum (Number n) = n
+unpackNum (String n) = let parsed = reads n in
+                         if null parsed
+                         then 0
+                         else fst $ parsed !! 0
+unpackNum (List [n]) = unpackNum n
+unpackNum _ = 0
 
 parseString :: Parser LispVal
 parseString = do char '"'
@@ -134,3 +155,13 @@ showVal (DottedList head tail) = "(" ++ unwordsList head ++ "."
 
 unwordsList :: [LispVal] -> String
 unwordsList = unwords . map showVal
+
+eval :: LispVal -> LispVal
+eval (String c) = (String c)
+eval (Atom a) = (Atom a)
+eval (Number n) = (Number n)
+eval (Bool b) = (Bool b)
+eval (List (Atom func : args)) = apply func $ map eval args
+
+apply :: String -> [LispVal] -> LispVal
+apply func args = maybe (Bool False) ($ args) $ lookup func primitives
