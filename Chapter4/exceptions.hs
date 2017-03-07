@@ -225,7 +225,7 @@ showError (UnboundVar message varname) = message ++ ": " ++ varname
 showError (BadSpecialForm message form) = message ++ ": " ++ show form
 showError (NotFunction message func) = message ++ ": " ++ func
 showError (NumArgs expected found) =
-  "Expected: " ++ show expected ++ ", found: " ++ show found
+  "Expected number of arguments: " ++ show expected ++ ", found: " ++ (show $ length found)
 showError (TypeMismatch expected found) =
   "Invalid type, expected: " ++ expected ++ ", found: " ++ show found
 showError (Parser parseErr) = "Parse error at " ++ show parseErr
